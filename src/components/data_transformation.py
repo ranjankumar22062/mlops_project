@@ -74,7 +74,16 @@ class DataTransformation:
     def _map_gender_column(self, df):
         """Map Gender column to 0 for Female and 1 for Male."""
         logging.info("Mapping 'Gender' column to binary values")
-        df['Gender'] = df['Gender'].map({'Female': 0, 'Male': 1}).astype(int)
+
+        # Map only Male/Female, keep others as NaN
+        df['Gender'] = df['Gender'].map({'Female': 0, 'Male': 1})
+
+        # Handle missing values (fill with default or drop)
+        if df['Gender'].isnull().any():
+            logging.warning("Some rows have invalid or missing gender values, filling with default value 0 (Female)")
+            df['Gender'] = df['Gender'].fillna(0)  # Or choose to drop rows: df.dropna(subset=['Gender'], inplace=True)
+
+        df['Gender'] = df['Gender'].astype(int)
         return df
 
     def _create_dummy_columns(self, df):
@@ -147,10 +156,36 @@ class DataTransformation:
             logging.info("Transformation done end to end to train-test df.")
 
             logging.info("Applying SMOTEENN for handling imbalanced dataset.")
+            
+
+            # ✅ Convert input features to DataFrame (if it's a numpy array)
+            if isinstance(input_feature_train_arr, (np.ndarray, list)):
+                input_feature_train_df = pd.DataFrame(input_feature_train_arr)
+            else:
+                input_feature_train_df = input_feature_train_arr.copy()
+
+            # ✅ Combine input and target to drop rows safely
+            train_data = input_feature_train_df.copy()
+            train_data['target'] = target_feature_train_df.values  # make sure target is aligned
+
+            # ✅ Drop rows with NaN in target
+            rows_before = len(train_data)
+            train_data = train_data.dropna(subset=['target'])
+            rows_after = len(train_data)
+
+            logging.info(f"Dropped {rows_before - rows_after} rows with NaN target values")
+
+            # ✅ Split back into X and y
+            input_feature_train_arr = train_data.drop(columns=['target']).values  # back to numpy array
+            target_feature_train_df = train_data['target'].values
+
+            # ✅ Apply SMOTEENN
             smt = SMOTEENN(sampling_strategy="minority")
             input_feature_train_final, target_feature_train_final = smt.fit_resample(
                 input_feature_train_arr, target_feature_train_df
             )
+
+            
             input_feature_test_final, target_feature_test_final = smt.fit_resample(
                 input_feature_test_arr, target_feature_test_df
             )
