@@ -13,9 +13,7 @@ column:
   - Response: int
 
 numerical_columns:
-  - id
   - Age
-  - Driving_Licence
   - Region_Code
   - Previously_Insured
   - Annual_Premium
